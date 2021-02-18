@@ -1,0 +1,111 @@
+#------------------------
+#        Traefik
+#------------------------
+version: '3'
+
+networks:
+ private:
+ web:
+  external:
+   name: web
+
+services:
+
+#------------------------
+#        Traefik
+#------------------------
+ traefik:
+  image: traefik:v2.4.2
+  ports:
+   - 80:80
+  volumes:
+   - /var/run/docker.sock:/var/run/docker.sock:ro
+  labels:
+   - traefik.enable=true
+   - traefik.http.routers.traefik.rule=Host(`traefik.workflow.com`)
+   - traefik.http.services.traefik.loadbalancer.server.port=8080
+  extra_hosts:
+   - "workflow.com:192.168.0.6"
+   - "traefik.workflow.com:192.168.0.6"
+   - "gogs.workflow.com:192.168.0.6"
+   - "jenkins.workflow.com:192.168.0.6"
+  restart: always
+  networks:
+   - web
+  command:
+   - --api=true
+   - --api.dashboard=true
+   - --api.insecure=true
+   - --entrypoints.web.address=:80
+   - --providers.docker=true
+   - --providers.docker.watch=true
+   - --providers.docker.network=web
+   - --providers.docker.exposedbydefault=false
+   - --log.level=debug
+  labels:
+   - traefik.enable=true
+   - traefik.http.routers.traefik.rule=Host(`traefik.workflow.com`)
+   - traefik.http.services.traefik.loadbalancer.server.port=8080
+  extra_hosts:
+   - "workflow.com:192.168.0.6"
+   - "traefik.workflow.com:192.168.0.6"
+   - "gogs.workflow.com:192.168.0.6"
+   - "jenkins.workflow.com:192.168.0.6"
+  restart: always
+
+ #------------------------
+ #        gogs
+ #------------------------
+ gogs-db:
+  image: postgres:13-alpine
+  volumes:
+   - ./data/gogs/postgres:/var/lib/postgresql/data
+  networks:
+   - private
+  environment:
+   - POSTGRES_DB=gogs
+   - POSTGRES_USER=gogs
+   - POSTGRES_PASSWORD=gogs
+  restart: always
+
+ gogs:
+  image: gogs/gogs:0.12
+  volumes:
+   - ./data/gogs/data:/data
+  networks:
+   - private
+   - web
+  ports:
+   - 2222:2222
+  labels:
+   - traefik.enable=true
+   - traefik.http.routers.gogs.rule=Host(`gogs.workflow.com`)
+   - traefik.http.services.gogs.loadbalancer.server.port=3000
+  extra_hosts:
+   - "workflow.com:192.168.0.6"
+   - "traefik.workflow.com:192.168.0.6"
+   - "gogs.workflow.com:192.168.0.6"
+   - "jenkins.workflow.com:192.168.0.6"
+  restart: always
+
+#------------------------
+#        Jenkins
+#------------------------
+ jenkins:
+  build: images/jenkins
+  volumes:
+   - /var/run/docker.sock:/var/run/docker.sock
+   - ./data/jenkins:/var/jenkins_home
+  networks:
+   - web
+   - private
+  labels:
+   - traefik.enable=true
+   - traefik.http.routers.jenkins.rule=Host(`jenkins.workflow.com`)
+   - traefik.http.services.jenkins.loadbalancer.server.port=8080
+  extra_hosts:
+   - "workflow.com:192.168.0.6"
+   - "traefik.workflow.com:192.168.0.6"
+   - "gogs.workflow.com:192.168.0.6"
+   - "jenkins.workflow.com:192.168.0.6"
+  restart: always
